@@ -375,67 +375,123 @@ NAMED_ASTEROIDS.forEach((a, i) => {
    7. ASTEROID WATCH — mini scene + live near-Earth-object feed
 --------------------------------------------------------- */
 
-const WATCH_EARTH_RADIUS = 4;
+const WATCH_EARTH_RADIUS = 6;
 const watchEarth = new THREE.Mesh(
-  new THREE.SphereGeometry(WATCH_EARTH_RADIUS, 40, 40),
-  new THREE.MeshStandardMaterial({ color: 0x3f7fd9, roughness: 0.8 })
+  new THREE.SphereGeometry(WATCH_EARTH_RADIUS, 48, 48),
+  new THREE.MeshStandardMaterial({ color: 0x2f6fd0, roughness: 0.7, metalness: 0.05 })
 );
 watchEarth.userData = { type: "watch-earth" };
 asteroidWatchGroup.add(watchEarth);
 
+// Soft atmosphere rim glow (rendered from the inside of a slightly larger shell)
 const watchEarthGlow = new THREE.Mesh(
-  new THREE.SphereGeometry(WATCH_EARTH_RADIUS * 1.08, 32, 32),
-  new THREE.MeshBasicMaterial({ color: 0x6c7bff, transparent: true, opacity: 0.12 })
+  new THREE.SphereGeometry(WATCH_EARTH_RADIUS * 1.18, 40, 40),
+  new THREE.MeshBasicMaterial({ color: 0x6c9bff, transparent: true, opacity: 0.22, side: THREE.BackSide, blending: THREE.AdditiveBlending })
 );
 watchEarth.add(watchEarthGlow);
 
-// Simple sunward direction marker so the scene reads as "Earth in space"
+// Dedicated key light so Earth actually reads as a lit sphere, not a flat disc.
+// Lives inside asteroidWatchGroup so it only ever lights this scene.
+const watchSunLight = new THREE.DirectionalLight(0xfff3d6, 1.6);
+watchSunLight.position.set(-90, 30, 50);
+asteroidWatchGroup.add(watchSunLight);
+asteroidWatchGroup.add(new THREE.AmbientLight(0x2a3050, 0.55));
+
+// Sunward direction marker so the scene reads as "Earth in space"
 const sunwardLine = new THREE.Line(
-  new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-60, 0, 0), new THREE.Vector3(-8, 0, 0)]),
-  new THREE.LineBasicMaterial({ color: 0xffb020, transparent: true, opacity: 0.4 })
+  new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-90, 30, 50).normalize().multiplyScalar(70), new THREE.Vector3(-90, 30, 50).normalize().multiplyScalar(9)]),
+  new THREE.LineBasicMaterial({ color: 0xffb020, transparent: true, opacity: 0.45 })
 );
 asteroidWatchGroup.add(sunwardLine);
 
-const neoClickable = [];
-const neoArcs = []; // { mesh, data }
-
-function clearNeoScene() {
-  neoArcs.forEach((a) => asteroidWatchGroup.remove(a.mesh));
-  neoArcs.length = 0;
-  neoClickable.length = 0;
+function distanceUnitsForLD(ld) {
+  // Log scale so both very close and very distant approaches stay legible,
+  // anchored to Earth's radius in this scene.
+  return WATCH_EARTH_RADIUS * 1.6 + Math.log10(ld + 1) * 10;
 }
 
-function distanceUnitsForLD(ld) {
-  // Log scale so both very close and very distant approaches stay legible.
-  return WATCH_EARTH_RADIUS + 6 + Math.log10(ld + 1) * 7;
+// Distance-ring scale guide (like a range-finder around Earth), built once.
+const RING_MARKS = [5, 10, 20, 40, 80];
+const ringLabelTargets = [];
+RING_MARKS.forEach((ld) => {
+  const r = distanceUnitsForLD(ld);
+  const segments = 96;
+  const pts = [];
+  for (let i = 0; i <= segments; i++) {
+    const t = (i / segments) * Math.PI * 2;
+    pts.push(new THREE.Vector3(Math.cos(t) * r, 0, Math.sin(t) * r));
+  }
+  const geo = new THREE.BufferGeometry().setFromPoints(pts);
+  const mat = new THREE.LineDashedMaterial({ color: 0x4a5480, transparent: true, opacity: 0.5, dashSize: 1.2, gapSize: 1.4 });
+  const ring = new THREE.LineLoop(geo, mat);
+  ring.computeLineDistances();
+  asteroidWatchGroup.add(ring);
+
+  const tickMesh = new THREE.Object3D();
+  tickMesh.position.set(r, 0, 0);
+  asteroidWatchGroup.add(tickMesh);
+  ringLabelTargets.push({ mesh: tickMesh, text: ld + " LD" });
+});
+
+const neoClickable = [];
+const neoArcs = []; // { line, marker, data }
+const neoLabelTargets = [];
+
+function clearNeoScene() {
+  neoArcs.forEach((a) => {
+    asteroidWatchGroup.remove(a.line);
+    asteroidWatchGroup.remove(a.marker);
+  });
+  neoArcs.length = 0;
+  neoClickable.length = 0;
+  neoLabelTargets.length = 0;
+  neoLabelEls.forEach((el) => el.remove());
+  neoLabelEls = [];
 }
 
 function buildNeoArc(item, index, total) {
-  const angle = (index / total) * Math.PI * 2 + 0.6;
+  const baseAngle = (index / total) * Math.PI * 2 + 0.5;
   const closeDist = distanceUnitsForLD(item.missDistanceLD);
-  const closePoint = new THREE.Vector3(Math.cos(angle) * closeDist, (Math.random() - 0.5) * 4, Math.sin(angle) * closeDist);
-  const farStart = closePoint.clone().multiplyScalar(3.2).add(new THREE.Vector3((Math.random() - 0.5) * 20, (Math.random() - 0.5) * 10, (Math.random() - 0.5) * 20));
-  const farEnd = closePoint.clone().multiplyScalar(3.2).add(new THREE.Vector3((Math.random() - 0.5) * 20, (Math.random() - 0.5) * 10, (Math.random() - 0.5) * 20));
+  const farDist = 68 + index * 8;
+  const spread = 0.5 + Math.random() * 0.15;
 
-  const curve = new THREE.QuadraticBezierCurve3(farStart, closePoint, farEnd);
-  const points = curve.getPoints(48);
+  // A gentle random tilt so arcs aren't all flat on one plane, applied
+  // consistently to every point of a given arc so it stays a coherent curve.
+  const tiltAxis = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.6 + 0.2, Math.random() - 0.5).normalize();
+  const tiltAngle = (Math.random() - 0.5) * 0.7;
+  function pointAt(angle, radius) {
+    const p = new THREE.Vector3(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
+    p.applyAxisAngle(tiltAxis, tiltAngle);
+    return p;
+  }
+
+  const closePoint = pointAt(baseAngle, closeDist);
+  const farStart = pointAt(baseAngle - spread, farDist);
+  const farEnd = pointAt(baseAngle + spread, farDist);
+  const midApproach = pointAt(baseAngle - spread * 0.4, (closeDist + farDist) / 2.1);
+  const midRecede = pointAt(baseAngle + spread * 0.4, (closeDist + farDist) / 2.1);
+
+  const curve = new THREE.CatmullRomCurve3([farStart, midApproach, closePoint, midRecede, farEnd]);
+  const points = curve.getPoints(80);
   const geo = new THREE.BufferGeometry().setFromPoints(points);
-  const color = item.hazardous ? 0xff5a5a : 0x6c7bff;
-  const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.7 });
+  const color = item.hazardous ? 0xff5a5a : 0x7ea0ff;
+  const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.85 });
   const line = new THREE.Line(geo, mat);
   asteroidWatchGroup.add(line);
 
+  const markerSize = 0.35 + Math.min(item.diameterM, 400) / 400 * 0.5;
   const marker = new THREE.Mesh(
-    new THREE.SphereGeometry(0.35, 12, 12),
+    new THREE.SphereGeometry(markerSize, 16, 16),
     new THREE.MeshBasicMaterial({ color })
   );
   marker.position.copy(closePoint);
   marker.userData = { type: "neo", data: item };
   asteroidWatchGroup.add(marker);
   neoClickable.push(marker);
+  neoLabelTargets.push({ mesh: marker, text: item.name });
+  neoLabelEls.push(createLabelEl(item.name, item.hazardous ? "hazard-label" : ""));
 
-  neoArcs.push({ mesh: line, marker, data: item });
-  return { line, marker };
+  neoArcs.push({ line, marker, data: item });
 }
 
 function renderApproachList(items) {
@@ -515,7 +571,7 @@ function selectNeo(item) {
   setMode("asteroids");
   const arc = neoArcs.find((a) => a.data === item);
   if (arc) {
-    neoArcs.forEach((a) => (a.mesh.material.opacity = a === arc ? 0.95 : 0.25));
+    neoArcs.forEach((a) => (a.line.material.opacity = a === arc ? 0.95 : 0.22));
     controls.target.copy(arc.marker.position);
   }
   openPanelForNeo(item);
@@ -646,38 +702,51 @@ document.getElementById("close-panel").addEventListener("click", () => {
 });
 
 /* ---------------------------------------------------------
-   9. LABELS (DOM overlay, solar-system mode only)
+   9. LABELS (DOM overlay — separate sets per mode)
 --------------------------------------------------------- */
 
 const labelLayer = document.createElement("div");
 document.body.appendChild(labelLayer);
 let labelsEnabled = true;
 
-const labelEls = labelTargets.map((t) => {
+function createLabelEl(text, extraClass) {
   const el = document.createElement("div");
-  el.className = "planet-label";
-  el.textContent = t.text;
+  el.className = "planet-label" + (extraClass ? " " + extraClass : "");
+  el.textContent = text;
   labelLayer.appendChild(el);
   return el;
-});
+}
 
-function updateLabels() {
-  if (!labelsEnabled || mode !== "solar") {
-    labelEls.forEach((el) => (el.style.display = "none"));
+const solarLabelEls = labelTargets.map((t) => createLabelEl(t.text));
+const ringLabelEls = ringLabelTargets.map((t) => createLabelEl(t.text, "ring-label"));
+let neoLabelEls = []; // rebuilt each time the NEO feed (re)loads
+
+function renderLabelSet(targets, els, enabled) {
+  if (!enabled) {
+    els.forEach((el) => (el.style.display = "none"));
     return;
   }
   const tmp = new THREE.Vector3();
-  labelTargets.forEach((t, i) => {
+  targets.forEach((t, i) => {
+    const el = els[i];
+    if (!el) return;
     t.mesh.getWorldPosition(tmp);
     const projected = tmp.clone().project(camera);
     const behind = projected.z > 1;
     const x = (projected.x * 0.5 + 0.5) * window.innerWidth;
     const y = (-projected.y * 0.5 + 0.5) * window.innerHeight;
-    const el = labelEls[i];
     el.style.display = behind ? "none" : "block";
     el.style.left = x + "px";
     el.style.top = y + "px";
   });
+}
+
+function updateLabels() {
+  const solarOn = mode === "solar" && labelsEnabled;
+  const watchOn = mode === "asteroids";
+  renderLabelSet(labelTargets, solarLabelEls, solarOn);
+  renderLabelSet(ringLabelTargets, ringLabelEls, watchOn);
+  renderLabelSet(neoLabelTargets, neoLabelEls, watchOn);
 }
 
 /* ---------------------------------------------------------
@@ -686,7 +755,7 @@ function updateLabels() {
 
 const CAMERA_PRESETS = {
   solar: { pos: new THREE.Vector3(0, 90, 260), target: new THREE.Vector3(0, 0, 0) },
-  asteroids: { pos: new THREE.Vector3(0, 26, 46), target: new THREE.Vector3(0, 0, 0) }
+  asteroids: { pos: new THREE.Vector3(0, 34, 62), target: new THREE.Vector3(0, 0, 0) }
 };
 
 function setMode(next) {
