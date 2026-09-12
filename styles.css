@@ -501,6 +501,14 @@ html, body {
   text-shadow: 0 0 6px rgba(0,0,0,0.9);
 }
 
+.planet-label.ring-label {
+  opacity: 0.55;
+  font-size: 9px;
+}
+.planet-label.hazard-label {
+  color: #ff8a8a;
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 720px) {
   .hud-rail { display: none; }
