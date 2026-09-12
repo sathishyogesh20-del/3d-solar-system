@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>COSMOS Solar System — 3D Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- Loading veil -->
+  <div id="loading-veil">
+    <div class="loading-mark">COSMOS</div>
+    <div class="loading-sub">calibrating orbits…</div>
+  </div>
+
+  <!-- 3D canvas mounts here -->
+  <div id="scene-root"></div>
+
+  <!-- Top bar -->
+  <header class="hud-top">
+    <div class="brand">
+      <span class="brand-mark">COSMOS</span>
+      <span class="brand-sub">solar system explorer</span>
+    </div>
+
+    <div class="auth-zone">
+      <button id="google-signin-btn" class="google-btn">
+        <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true">
+          <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.9 32.6 29.4 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6.1 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z"/>
+          <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6.1 29.5 4 24 4 16.3 4 9.6 8.3 6.3 14.7z"/>
+          <path fill="#4CAF50" d="M24 44c5.3 0 10.1-2 13.7-5.4l-6.3-5.3C29.4 35 26.9 36 24 36c-5.3 0-9.8-3.4-11.4-8.1l-6.5 5C9.5 39.6 16.2 44 24 44z"/>
+          <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-1 3-3.2 5.5-6 7.2l6.3 5.3C39.5 37.6 44 31.4 44 24c0-1.3-.1-2.7-.4-3.5z"/>
+        </svg>
+        Sign in with Google
+      </button>
+      <div id="signed-in-chip" class="signed-in-chip hidden">
+        <img id="user-avatar" src="" alt="" />
+        <span id="user-name"></span>
+        <button id="sign-out-btn" title="Sign out">✕</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Left control rail -->
+  <aside class="hud-rail">
+    <div class="rail-group">
+      <label class="rail-label">Orbit speed</label>
+      <input id="speed-slider" type="range" min="0" max="5" step="0.1" value="1" />
+    </div>
+    <div class="rail-group">
+      <button id="toggle-orbits" class="rail-toggle active">Orbit paths</button>
+      <button id="toggle-belt" class="rail-toggle active">Asteroid belt</button>
+      <button id="toggle-labels" class="rail-toggle active">Labels</button>
+    </div>
+    <div class="rail-group">
+      <button id="reset-view" class="rail-toggle">Reset view</button>
+    </div>
+    <div class="rail-hint">Drag to rotate · Scroll to zoom · Click a body to inspect it</div>
+  </aside>
+
+  <!-- Selected-body readout -->
+  <section id="info-panel" class="info-panel">
+    <button id="close-panel" class="close-panel">✕</button>
+    <div class="info-header">
+      <span id="info-badge" class="info-badge">BODY</span>
+      <h2 id="info-name">—</h2>
+    </div>
+    <p id="info-desc" class="info-desc"></p>
+
+    <div class="info-grid">
+      <div class="info-stat">
+        <span class="stat-label">Moons</span>
+        <span id="info-moons" class="stat-value">—</span>
+      </div>
+      <div class="info-stat">
+        <span class="stat-label">Tracked satellites</span>
+        <span id="info-sats" class="stat-value">—</span>
+      </div>
+      <div class="info-stat">
+        <span class="stat-label">Orbital period</span>
+        <span id="info-period" class="stat-value">—</span>
+      </div>
+      <div class="info-stat">
+        <span class="stat-label">Distance from Sun</span>
+        <span id="info-distance" class="stat-value">—</span>
+      </div>
+    </div>
+
+    <div class="info-block">
+      <h3>Moons on record</h3>
+      <ul id="info-moon-list" class="chip-list"></ul>
+    </div>
+
+    <div class="info-block">
+      <h3>Missions flown</h3>
+      <ul id="info-mission-list" class="mission-list"></ul>
+    </div>
+  </section>
+
+  <!-- Bottom timeline / legend -->
+  <footer class="hud-bottom">
+    <div id="planet-picker" class="planet-picker"></div>
+  </footer>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
