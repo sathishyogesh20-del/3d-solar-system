@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>COSMOS Solar System — 3D Explorer</title>
+<title>COSMOS EYES — 3D Solar System &amp; Asteroid Watch</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css" />
@@ -12,7 +12,7 @@
 
   <!-- Loading veil -->
   <div id="loading-veil">
-    <div class="loading-mark">COSMOS</div>
+    <div class="loading-mark">COSMOS EYES</div>
     <div class="loading-sub">calibrating orbits…</div>
   </div>
 
@@ -22,8 +22,13 @@
   <!-- Top bar -->
   <header class="hud-top">
     <div class="brand">
-      <span class="brand-mark">COSMOS</span>
-      <span class="brand-sub">solar system explorer</span>
+      <span class="brand-mark">COSMOS EYES</span>
+      <span class="brand-sub">solar system &amp; asteroid watch</span>
+    </div>
+
+    <div class="mode-switch">
+      <button class="mode-btn active" data-mode="solar">Solar System</button>
+      <button class="mode-btn" data-mode="asteroids">Asteroid Watch</button>
     </div>
 
     <div class="auth-zone">
@@ -44,24 +49,60 @@
     </div>
   </header>
 
+  <!-- Search -->
+  <div class="search-bar">
+    <input id="search-input" type="text" placeholder="Search a planet, moon, or tracked asteroid…" autocomplete="off" />
+    <div id="search-results" class="search-results"></div>
+  </div>
+
   <!-- Left control rail -->
   <aside class="hud-rail">
-    <div class="rail-group">
-      <label class="rail-label">Orbit speed</label>
-      <input id="speed-slider" type="range" min="0" max="5" step="0.1" value="1" />
+
+    <div id="rail-solar">
+      <div class="rail-group">
+        <label class="rail-label">Simulated date</label>
+        <div id="sim-date" class="sim-date">—</div>
+        <div class="speed-row">
+          <button id="play-pause" class="rail-toggle active">Pause</button>
+          <button id="jump-now" class="rail-toggle">Now</button>
+        </div>
+        <div class="speed-row">
+          <button class="speed-btn" data-speed="0.2">0.2×</button>
+          <button class="speed-btn active" data-speed="1">1×</button>
+          <button class="speed-btn" data-speed="10">10×</button>
+          <button class="speed-btn" data-speed="100">100×</button>
+        </div>
+      </div>
+      <div class="rail-group">
+        <button id="toggle-orbits" class="rail-toggle active">Orbit paths</button>
+        <button id="toggle-belt" class="rail-toggle active">Asteroid belt</button>
+        <button id="toggle-labels" class="rail-toggle active">Labels</button>
+        <button id="toggle-scale" class="rail-toggle">True-to-scale sizes</button>
+      </div>
+      <div class="rail-group">
+        <button id="reset-view" class="rail-toggle">Reset view</button>
+      </div>
+      <div class="rail-hint">Drag to rotate · Scroll to zoom · Click a body to inspect it</div>
     </div>
-    <div class="rail-group">
-      <button id="toggle-orbits" class="rail-toggle active">Orbit paths</button>
-      <button id="toggle-belt" class="rail-toggle active">Asteroid belt</button>
-      <button id="toggle-labels" class="rail-toggle active">Labels</button>
+
+    <div id="rail-asteroids" class="hidden">
+      <div class="rail-group">
+        <label class="rail-label">Next close approaches</label>
+        <div id="approach-status" class="rail-hint">Loading near-Earth object feed…</div>
+        <div id="approach-list" class="approach-list"></div>
+      </div>
+      <div class="rail-group">
+        <label class="rail-label">Legend</label>
+        <div class="legend-row"><span class="legend-dot safe"></span> Routine approach</div>
+        <div class="legend-row"><span class="legend-dot hazard"></span> Potentially hazardous*</div>
+      </div>
+      <div class="rail-hint">*Larger than ~140 m and passing within about 19.5 lunar distances of Earth's orbit — flagged for closer monitoring, not an imminent impact warning.</div>
+      <div class="rail-hint" id="data-credit">Live data: public near-Earth object catalog (api.nasa.gov). Falls back to a static sample set if the feed is unreachable or rate-limited.</div>
     </div>
-    <div class="rail-group">
-      <button id="reset-view" class="rail-toggle">Reset view</button>
-    </div>
-    <div class="rail-hint">Drag to rotate · Scroll to zoom · Click a body to inspect it</div>
+
   </aside>
 
-  <!-- Selected-body readout -->
+  <!-- Selected-body / selected-object readout -->
   <section id="info-panel" class="info-panel">
     <button id="close-panel" class="close-panel">✕</button>
     <div class="info-header">
@@ -72,29 +113,29 @@
 
     <div class="info-grid">
       <div class="info-stat">
-        <span class="stat-label">Moons</span>
-        <span id="info-moons" class="stat-value">—</span>
+        <span id="stat-label-1" class="stat-label">Moons</span>
+        <span id="info-stat-1" class="stat-value">—</span>
       </div>
       <div class="info-stat">
-        <span class="stat-label">Tracked satellites</span>
-        <span id="info-sats" class="stat-value">—</span>
+        <span id="stat-label-2" class="stat-label">Tracked satellites</span>
+        <span id="info-stat-2" class="stat-value">—</span>
       </div>
       <div class="info-stat">
-        <span class="stat-label">Orbital period</span>
-        <span id="info-period" class="stat-value">—</span>
+        <span id="stat-label-3" class="stat-label">Orbital period</span>
+        <span id="info-stat-3" class="stat-value">—</span>
       </div>
       <div class="info-stat">
-        <span class="stat-label">Distance from Sun</span>
-        <span id="info-distance" class="stat-value">—</span>
+        <span id="stat-label-4" class="stat-label">Distance from Sun</span>
+        <span id="info-stat-4" class="stat-value">—</span>
       </div>
     </div>
 
-    <div class="info-block">
-      <h3>Moons on record</h3>
+    <div class="info-block" id="info-block-moons">
+      <h3 id="info-block-moons-title">Moons on record</h3>
       <ul id="info-moon-list" class="chip-list"></ul>
     </div>
 
-    <div class="info-block">
+    <div class="info-block" id="info-block-missions">
       <h3>Missions flown</h3>
       <ul id="info-mission-list" class="mission-list"></ul>
     </div>
