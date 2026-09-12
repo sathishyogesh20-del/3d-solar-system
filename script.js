@@ -542,12 +542,12 @@ const picker = document.getElementById("planet-picker");
 --------------------------------------------------------- */
 
 const firebaseConfig = {
-  apiKey: "YOUR_FIREBASE_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_FIREBASE_APP_ID"
+apiKey: "AIzaSyBGYJCuZ7gCRTj-o8jSOVSYbXTwWmZPRe4",
+  authDomain: "d-solar-system-73df2.firebaseapp.com",
+  projectId: "d-solar-system-73df2",
+  storageBucket: "d-solar-system-73df2.firebasestorage.app",
+  messagingSenderId: "525990700263",
+  appId: "1:525990700263:web:010a6cdf1a02688fecee42"
 };
 
 let auth = null;
